@@ -26,8 +26,12 @@ use_yfinance = st.sidebar.checkbox("Yahoo Finance", value=True)
 use_alpha_vantage = st.sidebar.checkbox("Alpha Vantage", value=False)
 use_finnhub = st.sidebar.checkbox("Finnhub", value=False)
 
-ALPHA_VANTAGE_API_KEY = st.sidebar.text_input("Alpha Vantage API Key", type="password")
-FINNHUB_API_KEY = st.sidebar.text_input("Finnhub API Key", type="password")
+# API Keys (use sidebar input, fallback to default if blank)
+DEFAULT_ALPHA_VANTAGE_API_KEY = "3CLWRCXR800F4ASG"
+DEFAULT_FINNHUB_API_KEY = "d1pmoi9r01qu436fmoigd1pmoi9r01qu436fmoj0"
+
+ALPHA_VANTAGE_API_KEY = st.sidebar.text_input("Alpha Vantage API Key", type="password") or DEFAULT_ALPHA_VANTAGE_API_KEY
+FINNHUB_API_KEY = st.sidebar.text_input("Finnhub API Key", type="password") or DEFAULT_FINNHUB_API_KEY
 
 # Format market cap
 def format_market_cap(market_cap):
@@ -82,25 +86,42 @@ def get_yfinance_data(ticker):
         st.warning(f"YFinance error for {ticker}: {e}")
         return None
 
+def get_finnhub_recommendations(ticker):
+    try:
+        url = f"https://finnhub.io/api/v1/stock/recommendation?symbol={ticker}&token={FINNHUB_API_KEY}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                r = data[0]
+                return {
+                    'buy': r.get('buy', 0),
+                    'hold': r.get('hold', 0),
+                    'sell': r.get('sell', 0),
+                    'strongBuy': r.get('strongBuy', 0),
+                    'strongSell': r.get('strongSell', 0)
+                }
+    except Exception as e:
+        st.warning(f"Finnhub rec error for {ticker}: {e}")
+    return {'buy': 0, 'hold': 0, 'sell': 0, 'strongBuy': 0, 'strongSell': 0}
+
 # Aggregator
 def get_aggregated_data(ticker):
     sources = []
-
-    if use_yfinance:
-        data = get_yfinance_data(ticker)
-        if data: sources.append(data)
-
-    if not sources:
-        return None
-
-    d = sources[0]
-    total_buy = sum(x['buy_recs'] for x in sources)
-    total_hold = sum(x['hold_recs'] for x in sources)
-    total_sell = sum(x['sell_recs'] for x in sources)
+    yf_data = get_yfinance_data(ticker) if use_yfinance else None
+    if yf_data:
+        sources.append(yf_data)
+    # Finnhub fallback for recommendations
+    finnhub_recs = get_finnhub_recommendations(ticker) if use_finnhub and FINNHUB_API_KEY else None
+    d = sources[0] if sources else {}
+    total_buy = d.get('buy', 0) + (finnhub_recs['buy'] if finnhub_recs else 0)
+    total_hold = d.get('hold', 0) + (finnhub_recs['hold'] if finnhub_recs else 0)
+    total_sell = d.get('sell', 0) + (finnhub_recs['sell'] if finnhub_recs else 0)
 
     return {
-        'Symbol': ticker,
+        'Ticker': ticker,
         'Name': d.get('company_name'),
+        'Full Name': d.get('long_name', d.get('company_name', '')),
         'PE': round(d.get('pe_ratio', 0), 2) if d.get('pe_ratio') else None,
         'Market Cap': format_market_cap(d.get('market_cap')),
         'Price': f"${d.get('price', 0):.2f}" if d.get('price') else "N/A",
@@ -133,7 +154,7 @@ with st.spinner("Fetching stock data..."):
 if data:
     df = pd.DataFrame(data)
     st.subheader("📊 Screening Results")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, use_container_width=True, height=700)
 
     col1, col2 = st.columns(2)
     with col1:
