@@ -2,9 +2,6 @@ yfinance
 pandas
 streamlit
 plotly
-pandas
-streamlit
-plotly
 requests
 alpha-vantage
 finnhub-python
