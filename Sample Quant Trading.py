@@ -52,11 +52,13 @@ def get_yfinance_data(ticker):
 
         if recommendations is not None and not recommendations.empty:
             recent = recommendations.tail(10)
-            buy_count = len(recent[recent['To Grade'].str.contains('Buy|Outperform', case=False, na=False)])
-            hold_count = len(recent[recent['To Grade'].str.contains('Hold|Neutral', case=False, na=False)])
-            sell_count = len(recent[recent['To Grade'].str.contains('Sell|Underperform', case=False, na=False)])
-            upgrades = len(recent[recent['To Grade'] > recent['From Grade']])
-            downgrades = len(recent[recent['To Grade'] < recent['From Grade']])
+            if 'To Grade' in recent.columns:
+                buy_count = len(recent[recent['To Grade'].str.contains('Buy|Outperform', case=False, na=False)])
+                hold_count = len(recent[recent['To Grade'].str.contains('Hold|Neutral', case=False, na=False)])
+                sell_count = len(recent[recent['To Grade'].str.contains('Sell|Underperform', case=False, na=False)])
+                if 'From Grade' in recent.columns:
+                    upgrades = len(recent[recent['To Grade'] > recent['From Grade']])
+                    downgrades = len(recent[recent['To Grade'] < recent['From Grade']])
 
         return {
             'source': 'Yahoo Finance',
