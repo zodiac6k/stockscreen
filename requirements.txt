@@ -9,3 +9,4 @@ quandl
 yahoo_fin
 beautifulsoup4
 lxml
+schedule
