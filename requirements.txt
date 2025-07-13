@@ -1,7 +1,7 @@
 yfinance
 pandas
 streamlit
-plotlyyfinance
+plotly
 pandas
 streamlit
 plotly
