@@ -185,7 +185,10 @@ with st.spinner("Fetching stock data..."):
 if data:
     df = pd.DataFrame(data)
     st.subheader("📊 Screening Results")
-    st.dataframe(df, use_container_width=True, height=700)
+    # Set index to start from 1
+    df.index = df.index + 1
+    # Display the dataframe with a height that fits most screens and use_container_width for full width
+    st.dataframe(df, use_container_width=True, height=900)
 
     # Download button (works on Streamlit Cloud)
     csv = df.to_csv(index=False)
