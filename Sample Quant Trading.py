@@ -9,6 +9,12 @@ import requests
 import time
 import io
 from concurrent.futures import ThreadPoolExecutor
+import smtplib
+import json
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import schedule
+import time as pytime
 
 st.title("📘 Multi-Source Stock Screener - Enhanced Version")
 
@@ -140,6 +146,34 @@ def get_aggregated_data(ticker):
         'Data Sources': len(sources)
     }
 
+# Email config
+EMAIL_ADDRESS = st.secrets.get("email", {}).get("address", "your_email@gmail.com")
+EMAIL_PASSWORD = st.secrets.get("email", {}).get("password", "your_app_password")
+EMAIL_TO = st.secrets.get("email", {}).get("to", "recipient_email@gmail.com")
+
+def send_email_alert(subject, body):
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_ADDRESS
+    msg['To'] = EMAIL_TO
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_ADDRESS, EMAIL_TO, msg.as_string())
+    except Exception as e:
+        st.warning(f"Email send failed: {e}")
+
+def load_last_recommendations():
+    if os.path.exists("last_recommendations.json"):
+        with open("last_recommendations.json", "r") as f:
+            return json.load(f)
+    return {}
+
+def save_last_recommendations(data):
+    with open("last_recommendations.json", "w") as f:
+        json.dump(data, f)
+
 # Main fetch
 data = []
 with st.spinner("Fetching stock data..."):
@@ -181,6 +215,26 @@ if data:
                 st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
             st.error(f"Chart error for {chart_ticker}: {e}")
+
+    last_recs = load_last_recommendations()
+    changes = []
+    current_recs = {}
+
+    for row in data:
+        ticker = row['Ticker']
+        recs = {'Buy': row['Buy'], 'Hold': row['Hold'], 'Sell': row['Sell']}
+        current_recs[ticker] = recs
+        last = last_recs.get(ticker)
+        if last and recs != last:
+            changes.append(f"{ticker}: {last} → {recs}")
+
+    if changes:
+        subject = "Stock Screener Alert: Recommendation Change"
+        body = "The following stocks have updated recommendations:\n\n" + "\n".join(changes)
+        send_email_alert(subject, body)
+
+    save_last_recommendations(current_recs)
+
 else:
     st.info("No data found. Try different tickers or relax P/E filter.")
 
