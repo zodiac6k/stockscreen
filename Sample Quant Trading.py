@@ -7,6 +7,8 @@ import plotly.graph_objs as go
 import os
 import requests
 import time
+import io
+from concurrent.futures import ThreadPoolExecutor
 
 st.title("📘 Multi-Source Stock Screener - Enhanced Version")
 
@@ -141,14 +143,9 @@ def get_aggregated_data(ticker):
 # Main fetch
 data = []
 with st.spinner("Fetching stock data..."):
-    for t in selected_tickers:
-        try:
-            row = get_aggregated_data(t)
-            if row and row['PE'] is not None and row['PE'] <= pe_filter:
-                data.append(row)
-            time.sleep(0.5)
-        except Exception as e:
-            st.warning(f"Error with {t}: {e}")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(get_aggregated_data, selected_tickers))
+    data = [r for r in results if r]
 
 # Show results
 if data:
@@ -156,11 +153,16 @@ if data:
     st.subheader("📊 Screening Results")
     st.dataframe(df, use_container_width=True, height=700)
 
+    # Download button (works on Streamlit Cloud)
+    csv = df.to_csv(index=False)
+    st.download_button(
+        label="📥 Download CSV",
+        data=csv,
+        file_name="results.csv",
+        mime="text/csv"
+    )
+
     col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📥 Download CSV"):
-            df.to_csv("results.csv", index=False)
-            st.success("Downloaded results.csv")
     with col2:
         if st.button("📊 Summary"):
             st.metric("Total Stocks", len(df))
@@ -181,3 +183,8 @@ if data:
             st.error(f"Chart error for {chart_ticker}: {e}")
 else:
     st.info("No data found. Try different tickers or relax P/E filter.")
+
+st.markdown("""
+**Note:** Most free APIs do not provide analyst recommendations (Buy/Hold/Sell) for all stocks. 
+For more complete data, a paid data provider is required.
+""")
