@@ -1,4 +1,14 @@
 yfinance
 pandas
 streamlit
+plotlyyfinance
+pandas
+streamlit
 plotly
+requests
+alpha-vantage
+finnhub-python
+quandl
+yahoo_fin
+beautifulsoup4
+lxml
